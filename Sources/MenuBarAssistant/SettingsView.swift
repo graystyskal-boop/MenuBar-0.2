@@ -3,13 +3,14 @@ import SwiftUI
 struct SettingsView: View {
     @State private var combo: KeyCombo
     @State private var isRecording = false
-    @State private var apiKey: String
+    @State private var modelName: String
 
     let onComboChanged: (KeyCombo) -> Void
 
     init(initialCombo: KeyCombo, onComboChanged: @escaping (KeyCombo) -> Void) {
         _combo = State(initialValue: initialCombo)
-        _apiKey = State(initialValue: UserDefaults.standard.string(forKey: "anthropicApiKey") ?? "")
+        let stored = UserDefaults.standard.string(forKey: "ollamaModelName") ?? ""
+        _modelName = State(initialValue: stored.isEmpty ? "llama3.2" : stored)
         self.onComboChanged = onComboChanged
     }
 
@@ -32,17 +33,17 @@ struct SettingsView: View {
                     }
             }
 
-            Section("Anthropic API Key") {
-                SecureField("sk-ant-...", text: $apiKey)
-                    .onChange(of: apiKey) { _, newValue in
-                        UserDefaults.standard.set(newValue, forKey: "anthropicApiKey")
+            Section("Local Model (Ollama)") {
+                TextField("llama3.2", text: $modelName)
+                    .onChange(of: modelName) { _, newValue in
+                        UserDefaults.standard.set(newValue, forKey: "ollamaModelName")
                     }
-                Text("Stored locally in this Mac's user defaults, never sent anywhere except api.anthropic.com.")
+                Text("No API key needed — this talks to Ollama running locally at 127.0.0.1:11434.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
         }
         .padding(20)
-        .frame(width: 380, height: 240)
+        .frame(width: 380, height: 260)
     }
 }
