@@ -1,7 +1,7 @@
 import Cocoa
 import SwiftUI
 
-@Mainactor
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
