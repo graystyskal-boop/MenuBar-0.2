@@ -8,6 +8,7 @@ let package = Package(
         .executableTarget(
             name: "MenuBarAssistant",
             path: "Sources/MenuBarAssistant",
+            exclude: ["Info.plist"],
             linkerSettings: [
                 // Embeds Info.plist into the binary so macOS treats this as
                 // a background/menu-bar app (no Dock icon, no app switcher entry)
