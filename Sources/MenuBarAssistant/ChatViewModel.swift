@@ -13,17 +13,14 @@ final class ChatViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorText: String?
 
-    private var apiKey: String {
-        UserDefaults.standard.string(forKey: "anthropicApiKey") ?? ""
+    private var modelName: String {
+        let stored = UserDefaults.standard.string(forKey: "ollamaModelName") ?? ""
+        return stored.isEmpty ? "llama3.2" : stored
     }
 
     func send() {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
-        guard !apiKey.isEmpty else {
-            errorText = "Add your Anthropic API key in Settings first."
-            return
-        }
 
         messages.append(ChatMessage(role: "user", text: text))
         draft = ""
@@ -32,7 +29,7 @@ final class ChatViewModel: ObservableObject {
 
         Task {
             do {
-                let reply = try await callAPI()
+                let reply = try await callOllama()
                 messages.append(ChatMessage(role: "assistant", text: reply))
             } catch {
                 errorText = error.localizedDescription
@@ -41,31 +38,37 @@ final class ChatViewModel: ObservableObject {
         }
     }
 
-    private func callAPI() async throws -> String {
-        var request = URLRequest(url: URL(string: "https://api.anthropic.com/v1/messages")!)
+    private func callOllama() async throws -> String {
+        var request = URLRequest(url: URL(string: "http://127.0.0.1:11434/api/chat")!)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
 
         let body: [String: Any] = [
-            "model": "claude-sonnet-4-6",
-            "max_tokens": 1024,
+            "model": modelName,
+            "stream": false,
             "messages": messages.map { ["role": $0.role, "content": $0.text] }
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+
+        guard let http = response as? HTTPURLResponse else {
+            throw NSError(domain: "ChatViewModel", code: 0, userInfo: [
+                NSLocalizedDescriptionKey: "No response from Ollama. Is it running? Try 'ollama serve' in Terminal."
+            ])
+        }
+        guard http.statusCode == 200 else {
             let bodyText = String(data: data, encoding: .utf8) ?? "unknown error"
-            throw NSError(domain: "ChatViewModel", code: 1, userInfo: [NSLocalizedDescriptionKey: "API error: \(bodyText)"])
+            throw NSError(domain: "ChatViewModel", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "Ollama error (\(http.statusCode)): \(bodyText)"
+            ])
         }
 
-        struct Response: Decodable {
-            struct Content: Decodable { let type: String; let text: String? }
-            let content: [Content]
+        struct OllamaResponse: Decodable {
+            struct Message: Decodable { let role: String; let content: String }
+            let message: Message
         }
-        let decoded = try JSONDecoder().decode(Response.self, from: data)
-        return decoded.content.compactMap { $0.text }.joined()
+        let decoded = try JSONDecoder().decode(OllamaResponse.self, from: data)
+        return decoded.message.content
     }
 }
