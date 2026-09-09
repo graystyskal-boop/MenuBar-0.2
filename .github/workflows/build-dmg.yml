@@ -1,0 +1,32 @@
+name: Build DMG
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Show Swift/Xcode versions (for debugging)
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Make build script executable
+        run: chmod +x make_dmg.sh
+
+      - name: Build app bundle and DMG
+        run: ./make_dmg.sh
+
+      - name: Upload DMG as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MenuBarAssistant-dmg
+          path: dist/MenuBarAssistant.dmg
+          if-no-files-found: error
